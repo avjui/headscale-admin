@@ -1,7 +1,9 @@
 ARG ENDPOINT=/admin
 ARG PORT=80
 
-FROM node:24-alpine AS build
+# Static output is platform independent: build once on the native runner
+# platform instead of under QEMU emulation for every target platform.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 ARG ENDPOINT
 ENV ENDPOINT=$ENDPOINT
 
@@ -30,7 +32,7 @@ COPY static/ ./static/
 COPY src/ ./src/
 
 # Build static application, endpoint is provided by $ENDPOINT
-RUN npm run build 
+RUN npx svelte-kit sync && npm run build
 
 FROM caddy:latest
 
