@@ -6,3 +6,6 @@ export const API_URL_APIKEY = '/api/v1/apikey';
 export const API_URL_PREAUTHKEY = '/api/v1/preauthkey';
 export const API_URL_HEALTH = '/api/v1/health';
 export const API_URL_DEBUG = '/api/v1/debug';
+
+// headscale >= 0.29
+export const API_URL_AUTH = '/api/v1/auth';

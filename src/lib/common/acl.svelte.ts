@@ -43,11 +43,19 @@ export type AclPolicy = {
     src: string[],
     dst: string[],
 }
+
+export type SshAction = 'accept' | 'check'
+export const SshActions: SshAction[] = ['accept', 'check']
+
 export type AclSshRule = {
-    action: 'accept',
+    action: SshAction,
     src: string[],
     dst: string[],
     users: string[],
+    // headscale >= 0.29: only valid for action "check", e.g. "12h" or "always"
+    checkPeriod?: string,
+    // headscale >= 0.29: environment variables the client may forward
+    acceptEnv?: string[],
 }
 
 export type ACL = {
@@ -679,7 +687,10 @@ export class ACLBuilder implements ACL {
 
     setPolicy(idx: number, policy: AclPolicy) {
         this.validatePolicyIndex(idx)
+        // keep "#ha-meta" and any field this editor does not manage
         this.acls[idx] = {
+            ...this.acls[idx],
+            ...policy,
             action: policy.action,
             proto: policy.proto,
             src: policy.src,
@@ -771,11 +782,52 @@ export class ACLBuilder implements ACL {
     setSshRule(idx: number, rule: AclSshRule) {
         this.validateSshRuleIndex(idx)
         if (this.ssh !== undefined) {
-            this.ssh[idx] = {
+            // keep checkPeriod, acceptEnv and any field this editor does not manage
+            const next: AclSshRule = {
+                ...this.ssh[idx],
+                ...rule,
                 action: rule.action,
                 src: rule.src,
                 dst: rule.dst,
                 users: rule.users,
+            }
+            // headscale rejects checkPeriod on non-"check" rules
+            if (next.action !== 'check') {
+                delete next.checkPeriod
+            }
+            this.ssh[idx] = next
+        }
+    }
+
+    setSshRuleAction(idx: number, action: SshAction) {
+        this.validateSshRuleIndex(idx)
+        if (this.ssh !== undefined) {
+            this.ssh[idx].action = action
+            if (action !== 'check') {
+                delete this.ssh[idx].checkPeriod
+            }
+        }
+    }
+
+    setSshRuleCheckPeriod(idx: number, checkPeriod: string | undefined) {
+        this.validateSshRuleIndex(idx)
+        if (this.ssh !== undefined) {
+            const value = checkPeriod?.trim()
+            if (value) {
+                this.ssh[idx].checkPeriod = value
+            } else {
+                delete this.ssh[idx].checkPeriod
+            }
+        }
+    }
+
+    setSshRuleAcceptEnv(idx: number, acceptEnv: string[]) {
+        this.validateSshRuleIndex(idx)
+        if (this.ssh !== undefined) {
+            if (acceptEnv.length > 0) {
+                this.ssh[idx].acceptEnv = [...acceptEnv]
+            } else {
+                delete this.ssh[idx].acceptEnv
             }
         }
     }

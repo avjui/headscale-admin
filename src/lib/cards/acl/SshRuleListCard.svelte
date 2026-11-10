@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Autocomplete, getToastStore, InputChip, popup, Tab, TabGroup, type PopupSettings } from '@skeletonlabs/skeleton';
-	import { ACLBuilder, type AclPolicy, type AclSshRule } from '$lib/common/acl.svelte';
+	import { ACLBuilder, SshActions, type AclPolicy, type AclSshRule, type SshAction } from '$lib/common/acl.svelte';
 	import { toastSuccess, toastError, toOptions } from '$lib/common/funcs';
 	import MultiSelect from '$lib/parts/MultiSelect.svelte';
 	import Delete from '$lib/parts/Delete.svelte';
@@ -49,8 +49,34 @@
 			set dst(dst: string[]) { acl.setSshRuleDst(idx, dst) },
 			get users() { return acl.getSshRule(idx).users },
 			set users(users: string[]) { acl.setSshRuleUsers(idx, users) },
+			get action() { return acl.getSshRule(idx).action },
+			set action(action: SshAction) { acl.setSshRuleAction(idx, action) },
+			get checkPeriod() { return acl.getSshRule(idx).checkPeriod ?? '' },
+			set checkPeriod(checkPeriod: string) { acl.setSshRuleCheckPeriod(idx, checkPeriod) },
+			get acceptEnv() { return acl.getSshRule(idx).acceptEnv ?? [] },
+			set acceptEnv(acceptEnv: string[]) { acl.setSshRuleAcceptEnv(idx, acceptEnv) },
 		}
 	});
+
+	let acceptEnvNew = $state('')
+
+	function addAcceptEnv(name: string) {
+		name = name.trim()
+		if (name.length === 0) {
+			throw new Error("Invalid environment variable name")
+		}
+		if (/\s/.test(name)) {
+			throw new Error("Environment variable name must not contain spaces")
+		}
+		if (rule.acceptEnv.includes(name)) {
+			return
+		}
+		rule.acceptEnv = [...rule.acceptEnv, name]
+	}
+
+	function delAcceptEnv(name: string) {
+		rule.acceptEnv = rule.acceptEnv.filter(e => e != name)
+	}
 
 	let deleting = $state(false);
 
@@ -137,6 +163,32 @@
 <ListEntry id={idx.toString()} name={"SSH Rule #" + (idx + 1)} logo={RawMdiSecurity} bind:open>
 	{#snippet children()}
 	<CardListContainer>
+		<h3 class="font-mono mb-2 flex flex-row items-center">
+			<span>Action:</span>
+		</h3>
+		<div class="mb-6 flex flex-col md:flex-row gap-2">
+			<select
+				class="select rounded-md md:w-1/3"
+				value={rule.action}
+				disabled={loading}
+				onchange={(e) => { rule.action = e.currentTarget.value as SshAction }}
+			>
+				{#each SshActions as action}
+					<option value={action}>{action}</option>
+				{/each}
+			</select>
+			{#if rule.action === 'check'}
+				<input
+					autocomplete="off"
+					class="input rounded-md md:w-1/3"
+					placeholder="Check Period (e.g. 12h, always; default 12h)"
+					title="How long a successful check stays valid. Leave empty for the headscale default."
+					value={rule.checkPeriod}
+					disabled={loading}
+					onchange={(e) => { rule.checkPeriod = e.currentTarget.value }}
+				/>
+			{/if}
+		</div>
 		<h3 class="font-mono mb-2 flex flex-row items-center">
 			<span>Sources:</span>
 		</h3>
@@ -278,6 +330,47 @@
 				delUsername(item)
 			}}
 		/>
+		<h3 class="font-mono mb-2 mt-4 flex flex-row items-center">
+			<span>Accept Env:</span>
+		</h3>
+		<div class="flex flex-row space-x-2">
+			<input
+				autocomplete="off"
+				class="input rounded-md"
+				placeholder="Env variable (e.g. GIT_*, LANG)..."
+				bind:value={acceptEnvNew}
+				disabled={loading}
+			/>
+			<button
+				class="btn btn-sm rounded-md variant-soft-tertiary"
+				disabled={loading}
+				onclick={() => {
+					try {
+						addAcceptEnv(acceptEnvNew)
+						acceptEnvNew = ""
+					} catch (e) {
+						if (e instanceof Error) {
+							toastError('', ToastStore, e)
+						}
+						debug(e)
+					}
+				}}
+			>
+				Add
+			</button>
+		</div>
+		{#each rule.acceptEnv as env}
+		<div
+			class="card py-3 px-4 mt-2 grid grid-cols-12 backdrop-brightness-100 bg-white/25 dark:bg-white/5 rounded-md"
+		>
+			<div class="col-span-10 text-wrap hyphens-auto flex flex-row">
+				<span class="font-extralight rounded-md font-mono">{env}</span>
+			</div>
+			<div class="col-span-2 text-right">
+				<Delete func={() => { delAcceptEnv(env) }} disabled={loading} />
+			</div>
+		</div>
+		{/each}
 		<div class="pt-4">
 			<Delete func={deleteSshRule} />
 		</div>

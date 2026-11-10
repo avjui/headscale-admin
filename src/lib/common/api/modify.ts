@@ -9,11 +9,11 @@ import type {
 import { debug } from '../debug';
 import { apiPost, apiPut, apiDelete } from './base';
 import type { ACLBuilder } from '../acl.svelte';
-import { API_URL_NODE, API_URL_POLICY, API_URL_PREAUTHKEY, API_URL_USER } from './url';
-import { createApiKey } from './create';
+import { API_URL_AUTH, API_URL_NODE, API_URL_POLICY, API_URL_PREAUTHKEY, API_URL_USER } from './url';
+import { createApiKey, normalizeAuthId } from './create';
 import { expireApiKey } from './delete';
 import { App } from '$lib/States.svelte';
-import { setsEqual } from '../funcs';
+import { getTime, setsEqual } from '../funcs';
 
 export async function renameUser(u: User, nameNew: string): Promise<User> {
 	const path = `${API_URL_USER}/${u.id}/rename/${nameNew}`;
@@ -46,6 +46,32 @@ export async function expireNode(n: Node): Promise<Node> {
 	const { node } = await apiPost<ApiNode>(path, undefined);
 	debug('Expired Node "' + n.givenName + '"');
 	return node;
+}
+
+// headscale >= 0.29: the node will never expire
+export async function disableNodeExpiry(n: Node): Promise<Node> {
+	const params = new URLSearchParams({ disableExpiry: 'true' });
+	const path = `${API_URL_NODE}/${n.id}/expire?${params}`;
+	const { node } = await apiPost<ApiNode>(path, undefined);
+	node.expiry = node.expiry ?? null;
+	if (node.expiry !== null && getTime(node.expiry) <= Date.now()) {
+		// older headscale ignores disableExpiry and expires the node instead
+		throw new Error('Disabling expiry requires headscale 0.29 or newer; the node has been expired instead');
+	}
+	debug('Disabled expiry for Node "' + n.givenName + '"');
+	return node;
+}
+
+// headscale >= 0.29: approve or reject a pending auth session,
+// e.g. an SSH "check" request or an interactive registration.
+export async function approveAuth(authId: string) {
+	await apiPost(`${API_URL_AUTH}/approve`, { authId: normalizeAuthId(authId) });
+	debug('Approved auth session "' + authId + '"');
+}
+
+export async function rejectAuth(authId: string) {
+	await apiPost(`${API_URL_AUTH}/reject`, { authId: normalizeAuthId(authId) });
+	debug('Rejected auth session "' + authId + '"');
 }
 
 export async function setNodeTags(n: Node, tags: string[]): Promise<Node> {

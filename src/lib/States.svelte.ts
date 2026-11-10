@@ -177,6 +177,8 @@ export class HeadscaleAdmin {
         preAuthKeyUser: '',
         preAuthKey: '',
         unattended: false,
+        customHostname: false,
+        customHostnameValue: '',
         // advertise
         advertiseExitNode: false,
         advertiseExitNodeLocalAccess: false,

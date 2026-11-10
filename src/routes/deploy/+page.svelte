@@ -34,6 +34,7 @@
 			ephemeral: false,
 			reusable: false,
 			expiration: defaultExpires(),
+			aclTags: [] as string[],
 		};
 	}
 
@@ -54,6 +55,7 @@
 				preAuthKeySettings.ephemeral,
 				preAuthKeySettings.reusable,
 				preAuthKeySettings.expiration,
+				preAuthKeySettings.aclTags,
 			);
 			deployment.preAuthKey = preAuthKey.key;
 			toastSuccess('PreAuth Key created. Copy it now, it can only be viewed once.', ToastStore);
@@ -213,6 +215,19 @@
 									bind:checked={preAuthKeySettings.reusable}
 								/>
 								<span>Reusable</span>
+							</label>
+						</div>
+						<div class="md:col-span-2">
+							<label class="label flex flex-col gap-2">
+								<span>Tags (optional; nodes joining with this key are owned by these tags)</span>
+								<InputChip
+									name="preAuthKeyAclTags"
+									bind:value={preAuthKeySettings.aclTags}
+									validation={isValidTag}
+									on:invalid={() => {
+										toastError('Tag should be a lowercase alphanumeric word', ToastStore);
+									}}
+								/>
 							</label>
 						</div>
 					</div>

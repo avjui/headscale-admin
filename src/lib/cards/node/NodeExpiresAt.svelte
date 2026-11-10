@@ -2,11 +2,15 @@
 	import CardListEntry from '../CardListEntry.svelte';
 	import Delete from '$lib/parts/Delete.svelte';
 	import RawMdiEncryptionExpiration from '~icons/mdi/encryption-expiration';
+	import RawMdiAllInclusive from '~icons/mdi/all-inclusive';
 	import type { Node } from '$lib/common/types';
-	import { getTimeDifference, getTime, getTimeDifferenceColor } from '$lib/common/funcs';
-	import { expireNode } from '$lib/common/api';
+	import { getTimeDifference, getTime, getTimeDifferenceColor, toastError, toastSuccess } from '$lib/common/funcs';
+	import { disableNodeExpiry, expireNode } from '$lib/common/api';
 	import { onMount } from 'svelte';
 	import { App } from '$lib/States.svelte';
+	import { getToastStore } from '@skeletonlabs/skeleton';
+
+	const ToastStore = getToastStore();
 
 	type NodeExpiresAtProps = {
 		node: Node,
@@ -33,7 +37,27 @@
 		<span class=" {getTimeDifferenceColor(diff)} items-center">
 			{diff.message}
 		</span>
-		<span class="items-center">
+		{#if diff.finite}
+		<span class="items-center" title="Disable key expiry (node never expires)">
+			<Delete
+				logo={RawMdiAllInclusive}
+				func={async () => {
+					loading = true
+					try {
+						App.updateValue(App.nodes, await disableNodeExpiry(node))
+						toastSuccess('Disabled expiry for "' + node.givenName + '"', ToastStore)
+					} catch (e) {
+						if (e instanceof Error) {
+							toastError('', ToastStore, e)
+						}
+					} finally {
+						loading = false
+					}
+				}}
+			/>
+		</span>
+		{/if}
+		<span class="items-center" title="Expire node now">
 			<Delete
 				logo={RawMdiEncryptionExpiration}
 				func={async () => {
