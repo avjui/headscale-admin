@@ -9,11 +9,16 @@
 	}
 	let { node }: NodeLastSeenProps = $props()
 
-	let lastSeen = $state(getTimeDifferenceMessage(getTime(node.lastSeen)));
+	// ticks every second so the relative time stays current
+	let now = $state(Date.now());
+	const lastSeen = $derived.by(() => {
+		void now; // re-evaluate on every tick
+		return getTimeDifferenceMessage(getTime(node.lastSeen));
+	});
 
 	onMount(() => {
 		const interval = setInterval(() => {
-			lastSeen = getTimeDifferenceMessage(getTime(node.lastSeen));
+			now = Date.now();
 		}, 1000);
 		return () => {
 			clearInterval(interval);
