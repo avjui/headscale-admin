@@ -1,0 +1,46 @@
+# Local test environment: headscale + headscale-admin behind one proxy.
+# Use ./hs-test.sh instead of calling docker compose directly.
+name: hs-admin-test
+
+services:
+  headscale:
+    image: headscale/headscale:${HEADSCALE_VERSION:-0.29.7}
+    command: serve
+    volumes:
+      - ./.state/config:/etc/headscale:ro
+      - hs-data:/var/lib/headscale
+      - hs-run:/var/run/headscale
+
+  # headscale-admin, built from the repository Dockerfile (same as CI)
+  admin:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: headscale-admin:local-test
+
+  # single origin: /admin -> headscale-admin, everything else -> headscale
+  proxy:
+    image: caddy:2
+    ports:
+      - "127.0.0.1:${HS_TEST_PORT:-8081}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on: [headscale, admin]
+
+  # optional tailscale clients (./hs-test.sh clients)
+  client1:
+    image: tailscale/tailscale:stable
+    hostname: client1
+    entrypoint: ["tailscaled", "--tun=userspace-networking", "--state=mem:"]
+    profiles: [clients]
+    depends_on: [headscale]
+  client2:
+    image: tailscale/tailscale:stable
+    hostname: client2
+    entrypoint: ["tailscaled", "--tun=userspace-networking", "--state=mem:"]
+    profiles: [clients]
+    depends_on: [headscale]
+
+volumes:
+  hs-data:
+  hs-run:

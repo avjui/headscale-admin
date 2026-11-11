@@ -1,0 +1,13 @@
+:80 {
+	# headscale-admin (image serves the app under /admin)
+	handle /admin* {
+		reverse_proxy admin:80
+	}
+	handle / {
+		redir /admin/ 302
+	}
+	# headscale API, registration pages, control protocol
+	handle {
+		reverse_proxy headscale:8080
+	}
+}
